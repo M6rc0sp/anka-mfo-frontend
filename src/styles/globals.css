@@ -157,9 +157,13 @@
     @apply inline-block font-[Work_Sans] text-lg font-medium text-[#68AAF1];
   }
 
-  /* ===== CARDS ===== */
-  .card-base {
-    @apply rounded-[32px] bg-[#1B1B1B];
+  /* ===== CARDS & WRAPPERS ===== */
+  .wrapper-neutral {
+    @apply rounded-[15px];
+  }
+
+  .bg-projection-chart {
+    @apply rounded-[15px] bg-[#1D1F1E];
   }
 
   .card-movement {
@@ -171,7 +175,7 @@
   }
 
   .card-simulation {
-    @apply h-16 rounded-base border-2 bg-[#1B1B1B] flex items-center justify-between px-4;
+    @apply h-16 rounded-[15px] border-2 bg-[#1B1B1B] flex items-center justify-between px-4;
   }
 
   /* ===== INPUTS ===== */
@@ -218,6 +222,33 @@
 
   .text-nav-inactive {
     @apply font-[ABeeZee] text-2xl font-normal leading-[30px] text-[#2D2D2D];
+  }
+
+  /* ===== TAB SELECTOR (reusable) ===== */
+  .nav-tabs {
+    @apply flex items-center gap-8;
+  }
+
+  .nav-tab {
+    @apply font-['ABeeZee'] text-2xl font-normal leading-[30px] transition-smooth cursor-pointer;
+  }
+
+  .nav-tab--active {
+    @apply text-[#C1C1C1] underline;
+  }
+
+  .nav-tab--inactive {
+    @apply text-[#2D2D2D];
+  }
+
+  /* Neutral wrapper for elements that need rounding but no background */
+  .wrapper-neutral {
+    @apply rounded-[15px];
+  }
+
+  /* Background for the projection chart specifically */
+  .bg-projection-chart {
+    @apply rounded-[15px] bg-[#1D1F1E];
   }
 
   /* ===== LAYOUT ===== */

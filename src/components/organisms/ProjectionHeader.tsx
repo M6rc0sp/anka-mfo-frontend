@@ -4,14 +4,12 @@ import { useState, useRef, useEffect } from 'react';
 import MiniSpark from '@/components/organisms/MiniSpark';
 
 interface ProjectionHeaderProps {
-    selectedClient?: string;
     netPatrimony?: string;
     variation?: string;
-    onClientChange?: (name: string) => void;
+    onClientChange?: (client: { id: string; name: string }) => void;
 }
 
 export default function ProjectionHeader({
-    selectedClient = 'Matheus Silveira',
     netPatrimony = 'R$ 2.679.930,00',
     variation = '+52,37%',
     onClientChange,
@@ -19,7 +17,7 @@ export default function ProjectionHeader({
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const [clients, setClients] = useState<Array<{ id: string; name: string }>>([]);
     const [highlightedIndex, setHighlightedIndex] = useState<number>(0);
-    const [localSelectedClient, setLocalSelectedClient] = useState<string>(selectedClient);
+    const [localSelectedClient, setLocalSelectedClient] = useState<string>('');
     const [isDragging, setIsDragging] = useState(false);
     const [startX, setStartX] = useState(0);
     const [scrollLeft, setScrollLeft] = useState(0);
@@ -53,12 +51,23 @@ export default function ProjectionHeader({
         let mounted = true;
         const fetchClients = async () => {
             try {
+                console.log('Fetching clients from http://localhost:3333/clients...');
                 const res = await fetch('http://localhost:3333/clients');
-                if (!res.ok) return;
+                if (!res.ok) {
+                    console.error('Failed to fetch clients:', res.status);
+                    return;
+                }
                 const data = await res.json();
-                if (mounted) setClients(Array.isArray(data) ? data : []);
+                console.log('Clients data received:', data);
+                if (mounted && data.success && Array.isArray(data.data)) {
+                    setClients(data.data);
+                    if (data.data.length > 0) {
+                        setLocalSelectedClient(data.data[0].name);
+                        if (typeof onClientChange === 'function') onClientChange(data.data[0]);
+                    }
+                }
             } catch (err) {
-                // ignore
+                console.error('Error fetching clients:', err);
             }
         };
         fetchClients();
@@ -87,7 +96,7 @@ export default function ProjectionHeader({
             if (c) {
                 setLocalSelectedClient(c.name);
                 setIsDropdownOpen(false);
-                if (typeof onClientChange === 'function') onClientChange(c.name);
+                if (typeof onClientChange === 'function') onClientChange({ id: c.id, name: c.name });
             }
         } else if (e.key === 'Escape') {
             e.preventDefault();
@@ -140,17 +149,18 @@ export default function ProjectionHeader({
     };
 
     return (
-        <div className="card-base p-8 mb-8">
+        <div className="wrapper-neutral p-8 mb-8">
             {/* Main Grid: Left (1/3) + Timeline (2/3) */}
-            <div className="grid grid-cols-12 gap-6">
+            <div className="grid grid-cols-12 gap-6 items-stretch">
                 {/* LEFT COLUMN (4/12) */}
-                <div className="col-span-4 flex flex-col">
-                    {/* Client Selector (agora com borda conectada ao dropdown) */}
-                    <div className={`${isDropdownOpen ? 'p-1 rounded-[34px] bg-gradient-to-r from-[#6777FA] to-[#03B6AD]' : ''} relative mb-6`}>
+                <div className="col-span-4 flex flex-col justify-between">
+                    {/* Client Selector */}
+                    <div className="relative w-[80%]">
+                        {/* O seletor principal (sempre visível) */}
                         <div
                             tabIndex={0}
                             onKeyDown={handleKeyDown}
-                            className={`flex items-center justify-between p-4 pr-5 bg-[#101010] cursor-pointer hover:border-[#E6E6E6] transition-colors ${isDropdownOpen ? 'rounded-t-[32px] rounded-b-none border-0' : 'rounded-[32px] border-2 border-[#C9C9C9]'}`}
+                            className={`flex items-center justify-between p-4 bg-[#101010] cursor-pointer hover:border-[#E6E6E6] transition-colors rounded-[32px] border-2 border-[#C9C9C9] relative z-30`}
                             onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                         >
                             <span className="text-xl font-medium text-white font-work-sans">
@@ -174,47 +184,58 @@ export default function ProjectionHeader({
                             </svg>
                         </div>
 
-                        {/* Dropdown agora colado à pill; bordas inferiores arredondadas e sem gap */}
+                        {/* Dropdown: Quando aberto, ele cria uma borda em "U" que sai das laterais do seletor */}
                         {isDropdownOpen && (
-                            <div
-                                className="absolute left-0 top-full w-full bg-[#101010] rounded-b-[32px] p-4 z-50 shadow-lg"
-                                style={{ boxSizing: 'border-box' }}
-                            >
-                                <div className="text-[#9E9E9E] text-sm">
-                                    {clients.length === 0 && <div>Carregando clientes...</div>}
-                                    {clients.length > 0 && (
-                                        <div className="flex flex-col max-h-60 overflow-auto">
-                                            {clients.map((c, i) => (
-                                                <div
-                                                    key={c.id}
-                                                    className={`px-3 py-2 rounded-md cursor-pointer ${i === highlightedIndex ? 'bg-[rgba(88,128,239,0.12)]' : 'hover:bg-[rgba(255,255,255,0.02)]'}`}
-                                                    onMouseEnter={() => setHighlightedIndex(i)}
-                                                    onMouseDown={() => {
-                                                        setLocalSelectedClient(c.name);
-                                                        setIsDropdownOpen(false);
-                                                        if (typeof onClientChange === 'function') onClientChange(c.name);
-                                                    }}
-                                                >
-                                                    <span className="text-white text-sm">{c.name}</span>
+                            <div className="absolute top-[30px] left-0 right-0 z-20">
+                                {/* 
+                                    A borda em "U":
+                                    - Começa no meio da altura do seletor (top-[30px])
+                                    - border-t-0 remove a linha de cima
+                                    - rounded-b-[32px] mantém o fundo arredondado
+                                */}
+                                <div className="w-full border-2 border-t-0 border-[#C9C9C9] rounded-b-[32px] bg-[#101010] flex flex-col overflow-hidden shadow-2xl">
+                                    {/* Espaço para compensar a sobreposição com o seletor */}
+                                    <div className="h-[32px] w-full"></div>
+
+                                    {/* Conteúdo do Dropdown */}
+                                    <div className="p-4 pt-2">
+                                        <div className="text-[#9E9E9E] text-sm">
+                                            {clients.length === 0 && <div>Carregando clientes...</div>}
+                                            {clients.length > 0 && (
+                                                <div className="flex flex-col max-h-60 overflow-auto custom-scrollbar">
+                                                    {clients.map((c, i) => (
+                                                        <div
+                                                            key={c.id}
+                                                            className={`px-3 py-2 rounded-md cursor-pointer ${i === highlightedIndex ? 'bg-[rgba(88,128,239,0.12)]' : 'hover:bg-[rgba(255,255,255,0.02)]'}`}
+                                                            onMouseEnter={() => setHighlightedIndex(i)}
+                                                            onMouseDown={() => {
+                                                                setLocalSelectedClient(c.name);
+                                                                setIsDropdownOpen(false);
+                                                                if (typeof onClientChange === 'function') onClientChange({ id: c.id, name: c.name });
+                                                            }}
+                                                        >
+                                                            <span className="text-white text-sm">{c.name}</span>
+                                                        </div>
+                                                    ))}
                                                 </div>
-                                            ))}
+                                            )}
                                         </div>
-                                    )}
+                                    </div>
                                 </div>
                             </div>
                         )}
                     </div>
 
                     {/* Net Patrimony Section (bottom of left column) */}
-                    <div className="mt-auto">
+                    <div className="mt-8">
                         <h3 className="text-sm font-medium text-[#7B7B7B] font-satoshi mb-3">
                             Patrimônio Líquido Total
                         </h3>
                         <div className="flex items-baseline gap-1">
-                            <p className="text-[32px] font-medium text-[#757575] font-work-sans leading-tight">
+                            <p className="text-[39px] font-medium text-[#757575] font-work-sans leading-tight">
                                 {netPatrimony}
                             </p>
-                            <p className="text-base font-medium text-[#68AAF1] font-work-sans">
+                            <p className="text-[19px] font-medium text-[#68AAF1] font-work-sans">
                                 {variation}
                             </p>
                         </div>
@@ -222,9 +243,9 @@ export default function ProjectionHeader({
                 </div>
 
                 {/* RIGHT COLUMN - TIMELINE CAROUSEL (8/12) */}
-                <div className="col-span-8">
+                <div className="col-span-8 flex flex-col">
                     {/* Timeline Container with scroll but hidden scrollbar */}
-                    <div className="relative" style={{ overflow: 'hidden' }}>
+                    <div className="relative flex-1" style={{ overflow: 'hidden' }}>
                         {/* Fade gradient overlay (right side) */}
                         <div
                             className="absolute inset-y-0 right-0 w-24 pointer-events-none z-10"
@@ -249,7 +270,7 @@ export default function ProjectionHeader({
                                 cursor: isDragging ? 'grabbing' : 'grab',
                                 userSelect: 'none',
                             }}
-                            className="flex gap-8 pb-4"
+                            className="flex gap-8 h-full"
                         >
                             <style>{`
                                 div::-webkit-scrollbar {
@@ -259,7 +280,7 @@ export default function ProjectionHeader({
                             {scenariosData.map((scenario, idx) => (
                                 <div
                                     key={idx}
-                                    className="flex-shrink-0 relative"
+                                    className="flex-shrink-0 relative flex flex-col"
                                     style={{ width: '280px', flexBasis: '280px' }}
                                 >
                                     {/* Vertical line - full height */}
@@ -267,20 +288,20 @@ export default function ProjectionHeader({
                                         className="absolute w-[1px] bg-[#444444]"
                                         style={{
                                             left: '-24px',
-                                            top: '-30px',
-                                            bottom: '-30px',
-                                            height: 'calc(100% + 60px)',
+                                            top: '0',
+                                            bottom: '0',
+                                            height: '100%',
                                         }}
                                     />
 
-                                    {/* Mini chart */}
-                                    <div className="relative z-10 h-[50px] bg-[rgba(103,119,250,0.08)] rounded-[4px] flex items-end justify-center p-2">
+                                    {/* Mini chart - agora ocupa o espaço disponível */}
+                                    <div className="relative z-10 flex-1 bg-[rgba(103,119,250,0.08)] rounded-[4px] flex items-end justify-center p-2 min-h-[100px]">
                                         <MiniSpark data={seriesForYear(scenario.year)} />
                                     </div>
 
                                     {/* Horizontal line */}
                                     <div
-                                        className="relative z-10 w-full my-3"
+                                        className="relative z-10 w-full my-4"
                                         style={{
                                             borderTop: idx % 2 === 0
                                                 ? '1px solid #444444'
@@ -289,7 +310,7 @@ export default function ProjectionHeader({
                                     />
 
                                     {/* Text */}
-                                    <div className="relative z-10 space-y-1">
+                                    <div className="relative z-10 space-y-1 pb-2">
                                         <div className="flex items-center gap-2">
                                             <p className={`text-sm font-medium font-work-sans ${scenario.isToday ? 'text-[#68AAF1]' : 'text-white'}`}>
                                                 {scenario.year}
@@ -321,25 +342,25 @@ export default function ProjectionHeader({
                             {[2055, 2065, 2075].map((year, idx) => (
                                 <div
                                     key={year}
-                                    className="flex-shrink-0 relative"
+                                    className="flex-shrink-0 relative flex flex-col"
                                     style={{ width: '280px', flexBasis: '280px' }}
                                 >
                                     <div
                                         className="absolute w-[1px] bg-[#444444]"
                                         style={{
                                             left: '-24px',
-                                            top: '-30px',
-                                            bottom: '-30px',
-                                            height: 'calc(100% + 60px)',
+                                            top: '0',
+                                            bottom: '0',
+                                            height: '100%',
                                         }}
                                     />
 
-                                    <div className="relative z-10 h-[50px] bg-[rgba(103,119,250,0.08)] rounded-[4px] flex items-end justify-center p-2">
+                                    <div className="relative z-10 flex-1 bg-[rgba(103,119,250,0.08)] rounded-[4px] flex items-end justify-center p-2 min-h-[100px]">
                                         <MiniSpark data={seriesForYear(String(year))} colorFrom="#292D52" colorTo="#292D52" />
                                     </div>
 
                                     <div
-                                        className="relative z-10 w-full my-3"
+                                        className="relative z-10 w-full my-4"
                                         style={{
                                             borderTop: idx % 2 === 0
                                                 ? '1px solid #444444'
@@ -347,7 +368,7 @@ export default function ProjectionHeader({
                                         }}
                                     />
 
-                                    <div className="relative z-10 space-y-1">
+                                    <div className="relative z-10 space-y-1 pb-2">
                                         <p className="text-sm font-medium text-white font-work-sans">
                                             {year}
                                         </p>
