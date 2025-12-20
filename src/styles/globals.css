@@ -217,11 +217,11 @@
   }
 
   .text-nav-active {
-    @apply font-[ABeeZee] text-2xl font-normal leading-[30px] text-[#C1C1C1] underline;
+    @apply font-[ABeeZee] text-[18px] font-normal leading-[30px] text-[#C1C1C1] underline;
   }
 
   .text-nav-inactive {
-    @apply font-[ABeeZee] text-2xl font-normal leading-[30px] text-[#2D2D2D];
+    @apply font-[ABeeZee] text-[18px] font-normal leading-[30px] text-[#2D2D2D];
   }
 
   /* ===== TAB SELECTOR (reusable) ===== */
@@ -230,7 +230,7 @@
   }
 
   .nav-tab {
-    @apply font-['ABeeZee'] text-2xl font-normal leading-[30px] transition-smooth cursor-pointer;
+    @apply font-['ABeeZee'] text-[18px] font-normal leading-[30px] transition-smooth cursor-pointer;
   }
 
   .nav-tab--active {

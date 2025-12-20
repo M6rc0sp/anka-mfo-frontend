@@ -4,23 +4,32 @@ import { useState, useRef, useEffect } from 'react';
 import MiniSpark from '@/components/organisms/MiniSpark';
 
 interface ProjectionHeaderProps {
-    netPatrimony?: string;
-    variation?: string;
     onClientChange?: (client: { id: string; name: string }) => void;
 }
 
+interface ProjectionData {
+    yearly: Array<{ year: number; totalAssets: number }>;
+    summary: {
+        initialAssets: number;
+        finalAssets: number;
+        totalGrowthPercent: number;
+    };
+}
+
 export default function ProjectionHeader({
-    netPatrimony = 'R$ 2.679.930,00',
-    variation = '+52,37%',
     onClientChange,
 }: ProjectionHeaderProps) {
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-    const [clients, setClients] = useState<Array<{ id: string; name: string }>>([]);
+    const [clients, setClients] = useState<Array<{ id: string; name: string; birthdate?: string }>>([]);
     const [highlightedIndex, setHighlightedIndex] = useState<number>(0);
     const [localSelectedClient, setLocalSelectedClient] = useState<string>('');
+    const [selectedClientId, setSelectedClientId] = useState<string>('');
+    const [selectedClientBirthdate, setSelectedClientBirthdate] = useState<string>('');
     const [isDragging, setIsDragging] = useState(false);
     const [startX, setStartX] = useState(0);
     const [scrollLeft, setScrollLeft] = useState(0);
+    const [projectionData, setProjectionData] = useState<ProjectionData | null>(null);
+    const [loading, setLoading] = useState(false);
     const carouselRef = useRef<HTMLDivElement>(null);
 
     const handleMouseDown = (e: React.MouseEvent) => {
@@ -51,19 +60,17 @@ export default function ProjectionHeader({
         let mounted = true;
         const fetchClients = async () => {
             try {
-                console.log('Fetching clients from http://localhost:3333/clients...');
                 const res = await fetch('http://localhost:3333/clients');
-                if (!res.ok) {
-                    console.error('Failed to fetch clients:', res.status);
-                    return;
-                }
+                if (!res.ok) return;
                 const data = await res.json();
-                console.log('Clients data received:', data);
                 if (mounted && data.success && Array.isArray(data.data)) {
                     setClients(data.data);
                     if (data.data.length > 0) {
-                        setLocalSelectedClient(data.data[0].name);
-                        if (typeof onClientChange === 'function') onClientChange(data.data[0]);
+                        const firstClient = data.data[0];
+                        setLocalSelectedClient(firstClient.name);
+                        setSelectedClientId(firstClient.id);
+                        setSelectedClientBirthdate(firstClient.birthdate || '');
+                        if (typeof onClientChange === 'function') onClientChange(firstClient);
                     }
                 }
             } catch (err) {
@@ -73,6 +80,41 @@ export default function ProjectionHeader({
         fetchClients();
         return () => { mounted = false; };
     }, []);
+
+    // Fetch projection data when client changes
+    useEffect(() => {
+        if (!selectedClientId) return;
+        let mounted = true;
+        const fetchProjection = async () => {
+            setLoading(true);
+            try {
+                // First get simulations for client
+                const simsRes = await fetch(`http://localhost:3333/clients/${selectedClientId}/simulations`);
+                if (!simsRes.ok) return;
+                const simsData = await simsRes.json();
+                const sims = simsData.success && Array.isArray(simsData.data) ? simsData.data : [];
+                const sim = sims[0];
+                if (!sim || !sim.id) {
+                    if (mounted) setProjectionData(null);
+                    return;
+                }
+
+                // Then get projection
+                const projRes = await fetch(`http://localhost:3333/simulations/${sim.id}/projection`);
+                if (!projRes.ok) return;
+                const projData = await projRes.json();
+                if (mounted) {
+                    setProjectionData(projData);
+                }
+            } catch (err) {
+                console.error('Error fetching projection:', err);
+            } finally {
+                if (mounted) setLoading(false);
+            }
+        };
+        fetchProjection();
+        return () => { mounted = false; };
+    }, [selectedClientId]);
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
         if (!isDropdownOpen && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
@@ -95,6 +137,8 @@ export default function ProjectionHeader({
             const c = clients[highlightedIndex];
             if (c) {
                 setLocalSelectedClient(c.name);
+                setSelectedClientId(c.id);
+                setSelectedClientBirthdate(c.birthdate || '');
                 setIsDropdownOpen(false);
                 if (typeof onClientChange === 'function') onClientChange({ id: c.id, name: c.name });
             }
@@ -104,49 +148,103 @@ export default function ProjectionHeader({
         }
     };
 
-    // Timeline scenarios (10 years cada)
-    const scenariosData = [
-        {
-            year: '2025',
-            age: '45 anos',
-            label: 'Hoje',
-            isToday: true,
-        },
-        {
-            year: '2035',
-            age: '55 anos',
-            isToday: false,
-        },
-        {
-            year: '2045',
-            age: '65 anos',
-            isToday: false,
-        },
-    ];
+    // Format currency
+    const formatCurrency = (value: number): string => {
+        return new Intl.NumberFormat('pt-BR', {
+            style: 'currency',
+            currency: 'BRL',
+            minimumFractionDigits: 2,
+        }).format(value);
+    };
 
-    // Deterministic pseudo-random helpers to avoid SSR/client hydration mismatch
-    const hashString = (str: string) => {
-        let h = 0;
-        for (let i = 0; i < str.length; i++) {
-            h = (h << 5) - h + str.charCodeAt(i);
-            h |= 0;
+    // Format percentage
+    const formatPercentage = (value: number): string => {
+        const sign = value >= 0 ? '+' : '';
+        return `${sign}${value.toFixed(2)}%`;
+    };
+
+    // Calculate age from birthdate
+    const calculateAge = (birthdate: string, year: number): number => {
+        if (!birthdate) return 0;
+        const birthYear = new Date(birthdate).getFullYear();
+        return year - birthYear;
+    };
+
+    // Get current year
+    const currentYear = new Date().getFullYear();
+
+    // Build timeline scenarios from projection data
+    const buildTimelineScenarios = () => {
+        if (!projectionData || !projectionData.yearly || projectionData.yearly.length === 0) {
+            return [];
         }
-        return Math.abs(h);
-    };
 
-    const seededFraction = (seed: number) => {
-        const x = Math.sin(seed) * 10000;
-        return x - Math.floor(x);
-    };
-
-    const seriesForYear = (seedBase: string) => {
-        const arr: number[] = [];
-        for (let i = 0; i < 10; i++) {
-            const seed = hashString(`${seedBase}-${i}`) + i;
-            arr.push(30 + seededFraction(seed) * 70);
+        const yearly = projectionData.yearly;
+        const scenarios = [];
+        
+        // Add current year (first)
+        const firstYear = yearly[0];
+        if (firstYear) {
+            scenarios.push({
+                year: String(firstYear.year),
+                age: selectedClientBirthdate ? `${calculateAge(selectedClientBirthdate, firstYear.year)} anos` : '',
+                label: 'Hoje',
+                isToday: true,
+                totalAssets: firstYear.totalAssets,
+                data: yearly.slice(0, Math.min(10, yearly.length)).map(y => y.totalAssets),
+            });
         }
-        return arr;
+
+        // Add every 10 years
+        const intervals = [10, 20];
+        intervals.forEach(interval => {
+            const yearData = yearly.find(y => y.year === currentYear + interval);
+            if (yearData) {
+                const startIdx = yearly.findIndex(y => y.year === yearData.year - 9);
+                const endIdx = yearly.findIndex(y => y.year === yearData.year);
+                const sliceData = startIdx >= 0 && endIdx >= 0 
+                    ? yearly.slice(startIdx, endIdx + 1).map(y => y.totalAssets)
+                    : [];
+                
+                // Calculate growth from previous period
+                const prevYearData = yearly.find(y => y.year === yearData.year - 10);
+                const growth = prevYearData 
+                    ? ((yearData.totalAssets - prevYearData.totalAssets) / prevYearData.totalAssets) * 100
+                    : 0;
+
+                scenarios.push({
+                    year: String(yearData.year),
+                    age: selectedClientBirthdate ? `${calculateAge(selectedClientBirthdate, yearData.year)} anos` : '',
+                    isToday: false,
+                    totalAssets: yearData.totalAssets,
+                    growth: growth,
+                    data: sliceData.length > 0 ? sliceData : [yearData.totalAssets],
+                });
+            }
+        });
+
+        return scenarios;
     };
+
+    const scenarios = buildTimelineScenarios();
+
+    // Normalize data for mini spark (0-100 range)
+    const normalizeData = (data: number[]): number[] => {
+        if (data.length === 0) return [];
+        const min = Math.min(...data);
+        const max = Math.max(...data);
+        const range = max - min || 1;
+        return data.map(v => ((v - min) / range) * 70 + 30);
+    };
+
+    // Get patrimony values from projection
+    const netPatrimony = projectionData?.summary?.initialAssets 
+        ? formatCurrency(projectionData.summary.initialAssets)
+        : loading ? 'Carregando...' : 'R$ 0,00';
+    
+    const variation = projectionData?.summary?.totalGrowthPercent 
+        ? formatPercentage(projectionData.summary.totalGrowthPercent)
+        : '';
 
     return (
         <div className="wrapper-neutral p-8 mb-8">
@@ -164,7 +262,7 @@ export default function ProjectionHeader({
                             onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                         >
                             <span className="text-xl font-medium text-white font-work-sans">
-                                {localSelectedClient}
+                                {localSelectedClient || 'Selecione um cliente'}
                             </span>
                             <svg
                                 width="16"
@@ -184,20 +282,11 @@ export default function ProjectionHeader({
                             </svg>
                         </div>
 
-                        {/* Dropdown: Quando aberto, ele cria uma borda em "U" que sai das laterais do seletor */}
+                        {/* Dropdown */}
                         {isDropdownOpen && (
                             <div className="absolute top-[30px] left-0 right-0 z-20">
-                                {/* 
-                                    A borda em "U":
-                                    - Começa no meio da altura do seletor (top-[30px])
-                                    - border-t-0 remove a linha de cima
-                                    - rounded-b-[32px] mantém o fundo arredondado
-                                */}
                                 <div className="w-full border-2 border-t-0 border-[#C9C9C9] rounded-b-[32px] bg-[#101010] flex flex-col overflow-hidden shadow-2xl">
-                                    {/* Espaço para compensar a sobreposição com o seletor */}
                                     <div className="h-[32px] w-full"></div>
-
-                                    {/* Conteúdo do Dropdown */}
                                     <div className="p-4 pt-2">
                                         <div className="text-[#9E9E9E] text-sm">
                                             {clients.length === 0 && <div>Carregando clientes...</div>}
@@ -210,6 +299,8 @@ export default function ProjectionHeader({
                                                             onMouseEnter={() => setHighlightedIndex(i)}
                                                             onMouseDown={() => {
                                                                 setLocalSelectedClient(c.name);
+                                                                setSelectedClientId(c.id);
+                                                                setSelectedClientBirthdate(c.birthdate || '');
                                                                 setIsDropdownOpen(false);
                                                                 if (typeof onClientChange === 'function') onClientChange({ id: c.id, name: c.name });
                                                             }}
@@ -235,9 +326,11 @@ export default function ProjectionHeader({
                             <p className="text-[39px] font-medium text-[#757575] font-work-sans leading-tight">
                                 {netPatrimony}
                             </p>
-                            <p className="text-[19px] font-medium text-[#68AAF1] font-work-sans">
-                                {variation}
-                            </p>
+                            {variation && (
+                                <p className="text-[19px] font-medium text-[#68AAF1] font-work-sans">
+                                    {variation}
+                                </p>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -277,7 +370,20 @@ export default function ProjectionHeader({
                                     display: none;
                                 }
                             `}</style>
-                            {scenariosData.map((scenario, idx) => (
+
+                            {loading && (
+                                <div className="flex items-center justify-center w-full text-[#757575]">
+                                    Carregando projeção...
+                                </div>
+                            )}
+
+                            {!loading && scenarios.length === 0 && (
+                                <div className="flex items-center justify-center w-full text-[#757575]">
+                                    Nenhuma projeção disponível
+                                </div>
+                            )}
+
+                            {!loading && scenarios.map((scenario, idx) => (
                                 <div
                                     key={idx}
                                     className="flex-shrink-0 relative flex flex-col"
@@ -294,9 +400,13 @@ export default function ProjectionHeader({
                                         }}
                                     />
 
-                                    {/* Mini chart - agora ocupa o espaço disponível */}
-                                    <div className="relative z-10 flex-1 bg-[rgba(103,119,250,0.08)] rounded-[4px] flex items-end justify-center p-2 min-h-[100px]">
-                                        <MiniSpark data={seriesForYear(scenario.year)} />
+                                    {/* Mini chart */}
+                                    <div className={`relative z-10 flex-1 rounded-[4px] flex items-end justify-center p-2 min-h-[100px] ${scenario.isToday ? 'bg-[rgba(103,119,250,0.08)]' : 'bg-[rgba(41,45,82,0.3)]'}`}>
+                                        <MiniSpark 
+                                            data={normalizeData(scenario.data || [])} 
+                                            colorFrom={scenario.isToday ? '#6777FA' : '#292D52'}
+                                            colorTo={scenario.isToday ? '#03B6AD' : '#292D52'}
+                                        />
                                     </div>
 
                                     {/* Horizontal line */}
@@ -325,63 +435,16 @@ export default function ProjectionHeader({
                                         </div>
 
                                         <div className="flex items-center gap-2">
-                                            <p className={`text-sm font-medium font-work-sans ${scenario.isToday ? 'text-[#E6E6E6]' : 'text-white'}`}>
-                                                {scenario.age}
-                                            </p>
-                                            {!scenario.isToday && (
-                                                <p className="text-xs font-medium text-[#68AAF1] font-work-sans">
-                                                    {idx === 1 ? '+18,37%' : '+12,45%'}
+                                            {scenario.age && (
+                                                <p className={`text-sm font-medium font-work-sans ${scenario.isToday ? 'text-[#E6E6E6]' : 'text-white'}`}>
+                                                    {scenario.age}
                                                 </p>
                                             )}
-                                        </div>
-                                    </div>
-                                </div>
-                            ))}
-
-                            {/* Extra scrollable items */}
-                            {[2055, 2065, 2075].map((year, idx) => (
-                                <div
-                                    key={year}
-                                    className="flex-shrink-0 relative flex flex-col"
-                                    style={{ width: '280px', flexBasis: '280px' }}
-                                >
-                                    <div
-                                        className="absolute w-[1px] bg-[#444444]"
-                                        style={{
-                                            left: '-24px',
-                                            top: '0',
-                                            bottom: '0',
-                                            height: '100%',
-                                        }}
-                                    />
-
-                                    <div className="relative z-10 flex-1 bg-[rgba(103,119,250,0.08)] rounded-[4px] flex items-end justify-center p-2 min-h-[100px]">
-                                        <MiniSpark data={seriesForYear(String(year))} colorFrom="#292D52" colorTo="#292D52" />
-                                    </div>
-
-                                    <div
-                                        className="relative z-10 w-full my-4"
-                                        style={{
-                                            borderTop: idx % 2 === 0
-                                                ? '1px solid #444444'
-                                                : '1px dashed #444444',
-                                        }}
-                                    />
-
-                                    <div className="relative z-10 space-y-1 pb-2">
-                                        <p className="text-sm font-medium text-white font-work-sans">
-                                            {year}
-                                        </p>
-                                        <div className="flex items-center gap-2">
-                                            <p className="text-sm font-medium text-white font-work-sans">
-                                                {65 + (idx + 1) * 10} anos
-                                            </p>
-                                            <p className="text-xs font-medium text-[#68AAF1] font-work-sans">
-                                                {(() => {
-                                                    const seed = hashString(`${year}-pct-${idx}`) + idx;
-                                                    return `+${Math.floor(8 + seededFraction(seed) * 12)}%`;
-                                                })()}
-                                            </p>
+                                            {!scenario.isToday && scenario.growth !== undefined && (
+                                                <p className="text-xs font-medium text-[#68AAF1] font-work-sans">
+                                                    {formatPercentage(scenario.growth)}
+                                                </p>
+                                            )}
                                         </div>
                                     </div>
                                 </div>
