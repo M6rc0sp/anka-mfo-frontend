@@ -44,29 +44,29 @@ const formatCurrencyTooltip = (value: number): string => {
     }).format(value);
 };
 
-export default function ProjectionChart({ 
-    idealProjection, 
-    realizedHistory, 
+export default function ProjectionChart({
+    idealProjection,
+    realizedHistory,
     projectedFromReal,
     significantChanges = []
 }: ProjectionChartProps) {
     // Merge all series into unified data points
     const pointsMap = new Map<number, ChartDataPoint>();
-    
+
     // Add ideal projection (linha azul tracejada)
     idealProjection.forEach((p) => {
         const existing = pointsMap.get(p.year) || { year: p.year };
         existing.idealProjection = p.value;
         pointsMap.set(p.year, existing);
     });
-    
+
     // Add realized history (linha laranja sólida)
     realizedHistory.forEach((p) => {
         const existing = pointsMap.get(p.year) || { year: p.year };
         existing.realizedHistory = p.value;
         pointsMap.set(p.year, existing);
     });
-    
+
     // Add projected from real (linha verde tracejada)
     if (projectedFromReal) {
         projectedFromReal.forEach((p) => {
@@ -75,7 +75,7 @@ export default function ProjectionChart({
             pointsMap.set(p.year, existing);
         });
     }
-    
+
     const chartData = Array.from(pointsMap.values()).sort((a, b) => a.year - b.year);
 
     // Custom tooltip
@@ -99,19 +99,19 @@ export default function ProjectionChart({
         <div className="h-[420px] w-full">
             <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={chartData} margin={{ top: 20, right: 30, left: 10, bottom: 20 }}>
-                    <CartesianGrid 
-                        stroke="#333" 
-                        strokeDasharray="3 3" 
-                        horizontal={true} 
-                        vertical={false} 
+                    <CartesianGrid
+                        stroke="#333"
+                        strokeDasharray="3 3"
+                        horizontal={true}
+                        vertical={false}
                     />
-                    <XAxis 
-                        dataKey="year" 
+                    <XAxis
+                        dataKey="year"
                         tick={{ fill: '#757575', fontSize: 12 }}
                         axisLine={{ stroke: '#333' }}
                         tickLine={{ stroke: '#333' }}
                     />
-                    <YAxis 
+                    <YAxis
                         tick={{ fill: '#757575', fontSize: 12 }}
                         axisLine={{ stroke: '#333' }}
                         tickLine={{ stroke: '#333' }}
@@ -119,25 +119,25 @@ export default function ProjectionChart({
                         width={80}
                     />
                     <Tooltip content={<CustomTooltip />} />
-                    
+
                     {/* Linha azul tracejada - Projeção Ideal */}
-                    <Line 
-                        type="monotone" 
-                        dataKey="idealProjection" 
+                    <Line
+                        type="monotone"
+                        dataKey="idealProjection"
                         name="Projeção Ideal"
-                        stroke="#5B8DEF" 
+                        stroke="#5B8DEF"
                         strokeWidth={2.5}
                         strokeDasharray="8 4"
                         dot={false}
                         connectNulls
                     />
-                    
+
                     {/* Linha laranja sólida - Histórico Real */}
-                    <Line 
-                        type="monotone" 
-                        dataKey="realizedHistory" 
+                    <Line
+                        type="monotone"
+                        dataKey="realizedHistory"
                         name="Histórico Real"
-                        stroke="#F5A623" 
+                        stroke="#F5A623"
                         strokeWidth={2.5}
                         dot={(props: any) => {
                             const { cx, cy, payload } = props;
@@ -147,12 +147,12 @@ export default function ProjectionChart({
                             );
                             if (isSignificant) {
                                 return (
-                                    <circle 
+                                    <circle
                                         key={`dot-${payload.year}`}
-                                        cx={cx} 
-                                        cy={cy} 
-                                        r={6} 
-                                        fill="#F5A623" 
+                                        cx={cx}
+                                        cy={cy}
+                                        r={6}
+                                        fill="#F5A623"
                                         stroke="#1D1F1E"
                                         strokeWidth={2}
                                     />
@@ -163,19 +163,19 @@ export default function ProjectionChart({
                         }}
                         connectNulls
                     />
-                    
+
                     {/* Linha verde tracejada - Previsão baseada no Real */}
-                    <Line 
-                        type="monotone" 
-                        dataKey="projectedFromReal" 
+                    <Line
+                        type="monotone"
+                        dataKey="projectedFromReal"
                         name="Previsão"
-                        stroke="#4ADE80" 
+                        stroke="#4ADE80"
                         strokeWidth={2.5}
                         strokeDasharray="8 4"
                         dot={false}
                         connectNulls
                     />
-                    
+
                     {/* Reference dots for significant changes */}
                     {significantChanges.map((change, i) => (
                         <ReferenceDot

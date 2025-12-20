@@ -181,7 +181,7 @@ export default function ProjectionHeader({
 
         const yearly = projectionData.yearly;
         const scenarios = [];
-        
+
         // Add current year (first)
         const firstYear = yearly[0];
         if (firstYear) {
@@ -202,13 +202,13 @@ export default function ProjectionHeader({
             if (yearData) {
                 const startIdx = yearly.findIndex(y => y.year === yearData.year - 9);
                 const endIdx = yearly.findIndex(y => y.year === yearData.year);
-                const sliceData = startIdx >= 0 && endIdx >= 0 
+                const sliceData = startIdx >= 0 && endIdx >= 0
                     ? yearly.slice(startIdx, endIdx + 1).map(y => y.totalAssets)
                     : [];
-                
+
                 // Calculate growth from previous period
                 const prevYearData = yearly.find(y => y.year === yearData.year - 10);
-                const growth = prevYearData 
+                const growth = prevYearData
                     ? ((yearData.totalAssets - prevYearData.totalAssets) / prevYearData.totalAssets) * 100
                     : 0;
 
@@ -238,11 +238,11 @@ export default function ProjectionHeader({
     };
 
     // Get patrimony values from projection
-    const netPatrimony = projectionData?.summary?.initialAssets 
+    const netPatrimony = projectionData?.summary?.initialAssets
         ? formatCurrency(projectionData.summary.initialAssets)
         : loading ? 'Carregando...' : 'R$ 0,00';
-    
-    const variation = projectionData?.summary?.totalGrowthPercent 
+
+    const variation = projectionData?.summary?.totalGrowthPercent
         ? formatPercentage(projectionData.summary.totalGrowthPercent)
         : '';
 
@@ -402,8 +402,8 @@ export default function ProjectionHeader({
 
                                     {/* Mini chart */}
                                     <div className={`relative z-10 flex-1 rounded-[4px] flex items-end justify-center p-2 min-h-[100px] ${scenario.isToday ? 'bg-[rgba(103,119,250,0.08)]' : 'bg-[rgba(41,45,82,0.3)]'}`}>
-                                        <MiniSpark 
-                                            data={normalizeData(scenario.data || [])} 
+                                        <MiniSpark
+                                            data={normalizeData(scenario.data || [])}
                                             colorFrom={scenario.isToday ? '#6777FA' : '#292D52'}
                                             colorTo={scenario.isToday ? '#03B6AD' : '#292D52'}
                                         />

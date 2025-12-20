@@ -25,7 +25,7 @@ export default function ProjectionChartClient({ selectedClient }: ProjectionChar
 
     React.useEffect(() => {
         let mounted = true;
-        
+
         const fetchProjectionData = async (clientId?: string) => {
             if (!clientId) {
                 if (mounted) {
@@ -44,8 +44,8 @@ export default function ProjectionChartClient({ selectedClient }: ProjectionChar
                 const simsRes = await fetch(simsUrl);
                 if (!simsRes.ok) throw new Error(`Failed to fetch simulations: ${simsRes.status}`);
                 const simsBody = await simsRes.json();
-                const sims = simsBody.success && Array.isArray(simsBody.data) 
-                    ? simsBody.data 
+                const sims = simsBody.success && Array.isArray(simsBody.data)
+                    ? simsBody.data
                     : (Array.isArray(simsBody) ? simsBody : []);
                 const sim = sims[0];
 
@@ -68,9 +68,9 @@ export default function ProjectionChartClient({ selectedClient }: ProjectionChar
 
                 // Map yearly data to ideal projection (linha azul tracejada)
                 const yearly: YearlyData[] = Array.isArray(proj.yearly) ? proj.yearly : [];
-                const ideal = yearly.map((y) => ({ 
-                    year: y.year, 
-                    value: y.totalAssets 
+                const ideal = yearly.map((y) => ({
+                    year: y.year,
+                    value: y.totalAssets
                 }));
 
                 // 3) Fetch realized data (histórico real)
@@ -82,21 +82,21 @@ export default function ProjectionChartClient({ selectedClient }: ProjectionChar
                 if (realizedRes.ok) {
                     const realizedBody = await realizedRes.json();
                     const realized = realizedBody.success ? realizedBody.data : realizedBody;
-                    
+
                     const currentYear = new Date().getFullYear();
-                    
+
                     // Get total assets from realized endpoint (o que temos HOJE)
                     const totalAssetsNow = realized.totalAssets || realized.allocations?.total || 100000;
                     const initialCapital = sim.initial_capital || sim.initialCapital || 100000;
-                    
+
                     // Histórico real: do início até o ano atual
                     // Usar os dados da projeção ideal para anos passados como base, 
                     // mas com uma variação para simular diferenças reais
                     realizedData = [];
-                    
+
                     // Pegar anos do passado da projeção
                     const pastYears = yearly.filter((y: YearlyData) => y.year <= currentYear);
-                    
+
                     if (pastYears.length > 0) {
                         // Usar valores da projeção com pequena variação negativa (real geralmente fica abaixo do ideal)
                         pastYears.forEach((y: YearlyData, index: number) => {
@@ -107,16 +107,16 @@ export default function ProjectionChartClient({ selectedClient }: ProjectionChar
                                 value: Math.round(y.totalAssets * variationFactor)
                             });
                         });
-                        
+
                         // Identificar pontos de mudança significativa (quando a variação muda de direção)
                         for (let i = 1; i < realizedData.length - 1; i++) {
                             const prev = realizedData[i - 1].value;
                             const curr = realizedData[i].value;
                             const next = realizedData[i + 1].value;
-                            
+
                             const growthPrev = (curr - prev) / prev;
                             const growthNext = (next - curr) / curr;
-                            
+
                             // Marcar se houve mudança significativa de direção ou magnitude
                             if (Math.abs(growthNext - growthPrev) > 0.03) {
                                 changes.push({ year: realizedData[i].year, value: curr });
@@ -131,11 +131,11 @@ export default function ProjectionChartClient({ selectedClient }: ProjectionChar
                     const lastReal = realizedData[realizedData.length - 1];
                     const lastRealYear = lastReal.year;
                     const lastRealValue = lastReal.value;
-                    
+
                     // Taxa de crescimento conservadora (menor que a ideal)
                     // Pegar a taxa média da projeção ideal e reduzir um pouco
                     let avgGrowthRate = 0.06; // Default 6% (conservador)
-                    
+
                     if (yearly.length >= 2) {
                         const firstIdeal = yearly[0].totalAssets;
                         const lastIdeal = yearly[yearly.length - 1].totalAssets;
@@ -146,19 +146,19 @@ export default function ProjectionChartClient({ selectedClient }: ProjectionChar
                             avgGrowthRate = Math.max(0.03, idealRate * 0.85); // 85% da taxa ideal, mínimo 3%
                         }
                     }
-                    
+
                     // Project forward from last real value
                     const projectedFuture = [{ year: lastRealYear, value: lastRealValue }];
-                    const endYear = yearly.length > 0 
-                        ? yearly[yearly.length - 1].year 
+                    const endYear = yearly.length > 0
+                        ? yearly[yearly.length - 1].year
                         : lastRealYear + 20;
-                    
+
                     let currentValue = lastRealValue;
                     for (let year = lastRealYear + 1; year <= endYear; year++) {
                         currentValue = currentValue * (1 + avgGrowthRate);
                         projectedFuture.push({ year, value: Math.round(currentValue) });
                     }
-                    
+
                     if (mounted) {
                         setProjectedFromReal(projectedFuture);
                     }
@@ -180,7 +180,7 @@ export default function ProjectionChartClient({ selectedClient }: ProjectionChar
                 if (mounted) setLoading(false);
             }
         };
-        
+
         fetchProjectionData(selectedClient);
         return () => { mounted = false; };
     }, [selectedClient]);
@@ -195,7 +195,7 @@ export default function ProjectionChartClient({ selectedClient }: ProjectionChar
                 </div>
             )}
             {!loading && hasData && (
-                <ProjectionChart 
+                <ProjectionChart
                     idealProjection={idealProjection}
                     realizedHistory={realizedHistory}
                     projectedFromReal={projectedFromReal}
