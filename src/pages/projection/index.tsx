@@ -106,7 +106,7 @@ export default function ProjectionPage() {
                                             <div
                                                 key={event.id}
                                                 className="absolute flex flex-col items-center"
-                                                style={{ left: `${(index / (salaryEvents.length - 1)) * 90}%` }}
+                                                style={{ left: `${(index / (salaryEvents.length - 1)) * 90}%`, top: '-15px' }}
                                             >
                                                 {/* Bolinha */}
                                                 <div className="w-3 h-3 rounded-full bg-[#48F7A1] border-2 border-[#48F7A1]"></div>
@@ -146,7 +146,7 @@ export default function ProjectionPage() {
                                             <div
                                                 key={event.id}
                                                 className="absolute flex flex-col items-center"
-                                                style={{ left: `${(index / (costEvents.length - 1)) * 90}%` }}
+                                                style={{ left: `${(index / (costEvents.length - 1)) * 90}%`, top: '-15px' }}
                                             >
                                                 {/* Bolinha */}
                                                 <div className="w-3 h-3 rounded-full bg-[#FF5151] border-2 border-[#FF5151]"></div>

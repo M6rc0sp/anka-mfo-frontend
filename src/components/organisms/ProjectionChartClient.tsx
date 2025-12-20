@@ -73,50 +73,91 @@ export default function ProjectionChartClient({ selectedClient }: ProjectionChar
                     value: y.totalAssets
                 }));
 
-                // 3) Fetch realized data (histórico real)
-                const realizedUrl = `http://localhost:3333/clients/${clientId}/realized`;
-                const realizedRes = await fetch(realizedUrl);
+                // 3) Fetch allocations to build real history based on actual dates
+                const allocationsUrl = `http://localhost:3333/simulations/${sim.id}/allocations`;
+                const allocationsRes = await fetch(allocationsUrl);
                 let realizedData: { year: number; value: number }[] = [];
                 const changes: SignificantChange[] = [];
 
-                if (realizedRes.ok) {
-                    // Parse response (dados do realized para contexto futuro)
-                    await realizedRes.json();
+                if (allocationsRes.ok) {
+                    const allocationsBody = await allocationsRes.json();
+                    const allocations = allocationsBody.success && Array.isArray(allocationsBody.data)
+                        ? allocationsBody.data
+                        : [];
 
                     const currentYear = new Date().getFullYear();
 
-                    // Histórico real: do início até o ano atual
-                    // Usar os dados da projeção ideal para anos passados como base, 
-                    // mas com uma variação para simular diferenças reais
-                    realizedData = [];
+                    // Group allocations by year based on their allocationDate
+                    interface AllocationData {
+                        id: string;
+                        initialValue: number;
+                        annualReturn: number;
+                        allocationDate?: string | null;
+                    }
 
-                    // Pegar anos do passado da projeção
-                    const pastYears = yearly.filter((y: YearlyData) => y.year <= currentYear);
+                    // Build cumulative value by year from allocations
+                    const allocationsByYear = new Map<number, { added: number; rate: number }>();
 
-                    if (pastYears.length > 0) {
-                        // Usar valores da projeção com pequena variação negativa (real geralmente fica abaixo do ideal)
-                        pastYears.forEach((y: YearlyData) => {
-                            // O real tipicamente fica 5-15% abaixo do ideal
-                            const variationFactor = 0.92 + (Math.random() * 0.06); // 92% a 98% do ideal
-                            realizedData.push({
-                                year: y.year,
-                                value: Math.round(y.totalAssets * variationFactor)
-                            });
-                        });
+                    // Process each allocation
+                    allocations.forEach((alloc: AllocationData) => {
+                        const allocDate = alloc.allocationDate ? new Date(alloc.allocationDate) : new Date();
+                        const allocYear = allocDate.getFullYear();
 
-                        // Identificar pontos de mudança significativa (quando a variação muda de direção)
-                        for (let i = 1; i < realizedData.length - 1; i++) {
-                            const prev = realizedData[i - 1].value;
-                            const curr = realizedData[i].value;
-                            const next = realizedData[i + 1].value;
+                        if (!allocationsByYear.has(allocYear)) {
+                            allocationsByYear.set(allocYear, { added: 0, rate: 0 });
+                        }
 
-                            const growthPrev = (curr - prev) / prev;
-                            const growthNext = (next - curr) / curr;
+                        const yearData = allocationsByYear.get(allocYear)!;
+                        yearData.added += alloc.initialValue || 0;
+                        // Weighted average for return rate
+                        yearData.rate = (yearData.rate + (alloc.annualReturn || 0)) / 2;
+                    });
 
-                            // Marcar se houve mudança significativa de direção ou magnitude
-                            if (Math.abs(growthNext - growthPrev) > 0.03) {
-                                changes.push({ year: realizedData[i].year, value: curr });
+                    // Sort years and build cumulative history
+                    const sortedYears = Array.from(allocationsByYear.keys()).sort((a, b) => a - b);
+
+                    if (sortedYears.length > 0) {
+                        let cumulativeValue = 0;
+                        let avgRate = 0.08; // Default 8% annual return
+
+                        // Calculate the average rate from all allocations
+                        let totalRate = 0;
+                        let rateCount = 0;
+                        allocationsByYear.forEach((data) => {
+                            if (data.rate > 0) {
+                                totalRate += data.rate;
+                                rateCount++;
                             }
+                        });
+                        if (rateCount > 0) {
+                            avgRate = (totalRate / rateCount) / 100; // Convert percentage to decimal
+                        }
+
+                        const startYear = sortedYears[0];
+                        const endRealYear = Math.min(currentYear, yearly.length > 0 ? yearly[yearly.length - 1].year : currentYear);
+
+                        // Build year-by-year real history
+                        for (let year = startYear; year <= endRealYear; year++) {
+                            // Apply growth to existing value
+                            if (year > startYear) {
+                                cumulativeValue = cumulativeValue * (1 + avgRate);
+                            }
+
+                            // Add new allocations for this year
+                            if (allocationsByYear.has(year)) {
+                                const yearAlloc = allocationsByYear.get(year)!;
+                                cumulativeValue += yearAlloc.added;
+
+                                // Mark as significant change when new allocation is added
+                                if (yearAlloc.added > 0 && realizedData.length > 0) {
+                                    changes.push({ year, value: Math.round(cumulativeValue) });
+                                }
+                            }
+
+                            realizedData.push({
+                                year,
+                                value: Math.round(cumulativeValue)
+                            });
                         }
                     }
                 }
