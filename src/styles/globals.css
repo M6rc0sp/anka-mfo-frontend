@@ -321,4 +321,56 @@
   .text-truncate {
     @apply truncate;
   }
+
+  /* ===== DATE PICKER / CALENDAR STYLING ===== */
+  input[type="date"] {
+    color-scheme: dark;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+
+  input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(0.7) sepia(1) saturate(2) hue-rotate(340deg);
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+  }
+
+  input[type="date"]::-webkit-calendar-picker-indicator:hover {
+    filter: invert(0.7) sepia(1) saturate(3) hue-rotate(340deg);
+    background-color: rgba(255, 147, 67, 0.1);
+  }
+
+  input[type="date"]::-webkit-datetime-edit {
+    color: #C9C9C9;
+    font-family: 'ABeeZee', sans-serif;
+  }
+
+  input[type="date"]::-webkit-datetime-edit-fields-wrapper {
+    padding: 0;
+  }
+
+  input[type="date"]::-webkit-datetime-edit-day-field,
+  input[type="date"]::-webkit-datetime-edit-month-field,
+  input[type="date"]::-webkit-datetime-edit-year-field {
+    color: #C9C9C9;
+  }
+
+  input[type="date"]:focus::-webkit-datetime-edit-day-field,
+  input[type="date"]:focus::-webkit-datetime-edit-month-field,
+  input[type="date"]:focus::-webkit-datetime-edit-year-field {
+    color: #FFFFFF;
+  }
+
+  /* Remove scroll spinners from number inputs */
+  input[type="number"]::-webkit-outer-spin-button,
+  input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+
+  input[type="number"] {
+    -moz-appearance: textfield;
+  }
 }

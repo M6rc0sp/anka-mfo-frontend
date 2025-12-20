@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 
 interface SidebarProps {
     activeItem?: string;
@@ -28,11 +30,13 @@ const MENU_ITEMS: MenuItem[] = [
         label: 'Clientes',
         iconPath: '/assets/icons/client.svg',
         hasSubmenu: true,
-        href: '/clientes',
+        href: '/clients',
         subitems: [
             { id: 'dashboard', label: 'Dashboard', iconPath: '/assets/icons/dashboard.svg', hasSubmenu: false, href: '/dashboard' },
             { id: 'projecao', label: 'Projeção', iconPath: '/assets/icons/projection.svg', hasSubmenu: false, href: '/projection' },
-            { id: 'historico', label: 'Histórico', iconPath: '/assets/icons/history.svg', hasSubmenu: false, href: '/historico' },
+            { id: 'alocacoes', label: 'Alocações', iconPath: '/assets/icons/allocation.svg', hasSubmenu: false, href: '/allocations' },
+            { id: 'historico', label: 'Histórico', iconPath: '/assets/icons/history.svg', hasSubmenu: false, href: '/history' },
+            { id: 'seguros', label: 'Seguros', iconPath: '/assets/icons/insurance.svg', hasSubmenu: false, href: '/insurances' },
         ],
     },
     { id: 'prospects', label: 'Prospects', iconPath: '/assets/icons/prospects.svg', hasSubmenu: true, href: '/prospects' },
@@ -51,6 +55,7 @@ export default function Sidebar({
     },
     collapsed = false,
 }: SidebarProps) {
+    const pathname = usePathname();
     const [expandedItems, setExpandedItems] = useState<string[]>(['clientes']); // Clientes expandido por padrão
     const [active, setActive] = useState(activeItem);
 
@@ -65,6 +70,11 @@ export default function Sidebar({
         if (onItemClick) {
             onItemClick(item.id);
         }
+    };
+
+    const isActiveRoute = (href?: string) => {
+        if (!href) return false;
+        return pathname === href || pathname?.startsWith(href + '/');
     };
 
     const renderMenuItemIcon = (iconPath: string) => (
@@ -100,8 +110,35 @@ export default function Sidebar({
 
     const renderMenuItems = (items: MenuItem[], isSubmenu = false) => {
         return items.map((item) => {
-            const isActive = active === item.id;
+            const isActive = isActiveRoute(item.href) || active === item.id;
             const isExpanded = expandedItems.includes(item.id);
+
+            // Se for um subitem com href, usa Link para navegação real
+            if (isSubmenu && item.href) {
+                return (
+                    <li key={item.id}>
+                        <Link
+                            href={item.href}
+                            onClick={() => handleItemClick(item)}
+                            aria-current={isActive ? 'page' : undefined}
+                            className={`w-full flex items-center gap-4 pl-12 pr-6 py-3 rounded-full transition-all duration-200 group ${isActive
+                                ? 'bg-gradient-to-r from-[rgba(255,107,53,0.06)] to-[rgba(247,183,72,0.04)] text-[#E6E6E6]'
+                                : 'text-[#9E9E9E] hover:bg-[#111111] hover:text-[#EDEDED]'
+                                }`}
+                        >
+                            {/* Icon */}
+                            <span className="text-[18px] text-[#9E9E9E] group-hover:text-[#EDEDED] flex-shrink-0" aria-hidden>
+                                {renderMenuItemIcon(item.iconPath)}
+                            </span>
+
+                            {/* Label */}
+                            <span className="font-abeezee text-base font-medium flex-1 text-left truncate">
+                                {item.label}
+                            </span>
+                        </Link>
+                    </li>
+                );
+            }
 
             return (
                 <li key={item.id}>

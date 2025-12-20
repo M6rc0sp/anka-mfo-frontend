@@ -158,8 +158,8 @@ export default function ProjectionChart({
                                     />
                                 );
                             }
-                            // Não mostra ponto em anos normais
-                            return null;
+                            // Ponto transparente para anos normais
+                            return <circle key={`dot-${payload.year}`} cx={cx} cy={cy} r={0} fill="transparent" />;
                         }}
                         connectNulls
                     />

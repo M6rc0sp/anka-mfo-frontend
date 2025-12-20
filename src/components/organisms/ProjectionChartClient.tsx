@@ -77,17 +77,13 @@ export default function ProjectionChartClient({ selectedClient }: ProjectionChar
                 const realizedUrl = `http://localhost:3333/clients/${clientId}/realized`;
                 const realizedRes = await fetch(realizedUrl);
                 let realizedData: { year: number; value: number }[] = [];
-                let changes: SignificantChange[] = [];
+                const changes: SignificantChange[] = [];
 
                 if (realizedRes.ok) {
-                    const realizedBody = await realizedRes.json();
-                    const realized = realizedBody.success ? realizedBody.data : realizedBody;
+                    // Parse response (dados do realized para contexto futuro)
+                    await realizedRes.json();
 
                     const currentYear = new Date().getFullYear();
-
-                    // Get total assets from realized endpoint (o que temos HOJE)
-                    const totalAssetsNow = realized.totalAssets || realized.allocations?.total || 100000;
-                    const initialCapital = sim.initial_capital || sim.initialCapital || 100000;
 
                     // Histórico real: do início até o ano atual
                     // Usar os dados da projeção ideal para anos passados como base, 
@@ -99,7 +95,7 @@ export default function ProjectionChartClient({ selectedClient }: ProjectionChar
 
                     if (pastYears.length > 0) {
                         // Usar valores da projeção com pequena variação negativa (real geralmente fica abaixo do ideal)
-                        pastYears.forEach((y: YearlyData, index: number) => {
+                        pastYears.forEach((y: YearlyData) => {
                             // O real tipicamente fica 5-15% abaixo do ideal
                             const variationFactor = 0.92 + (Math.random() * 0.06); // 92% a 98% do ideal
                             realizedData.push({

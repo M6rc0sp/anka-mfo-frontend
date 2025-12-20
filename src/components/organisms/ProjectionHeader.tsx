@@ -173,14 +173,25 @@ export default function ProjectionHeader({
     // Get current year
     const currentYear = new Date().getFullYear();
 
+    // Tipo para cenário de timeline
+    type TimelineScenario = {
+        year: string;
+        age: string;
+        label?: string;
+        isToday: boolean;
+        totalAssets: number;
+        growth?: number;
+        data: number[];
+    };
+
     // Build timeline scenarios from projection data
-    const buildTimelineScenarios = () => {
+    const buildTimelineScenarios = (): TimelineScenario[] => {
         if (!projectionData || !projectionData.yearly || projectionData.yearly.length === 0) {
             return [];
         }
 
         const yearly = projectionData.yearly;
-        const scenarios = [];
+        const scenarios: TimelineScenario[] = [];
 
         // Add current year (first)
         const firstYear = yearly[0];
