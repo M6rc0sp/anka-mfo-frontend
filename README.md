@@ -8,8 +8,8 @@ Cliente Next.js para plataforma Multi Family Office.
 
 ```bash
 # Clone infra com submodules
-git clone --recurse-submodules <infra-repo-url>
-cd infra
+git clone --recurse-submodules https://github.com/m6rc0sp/anka-mfo-infra.git
+cd anka-mfo-infra
 
 # Suba os serviços
 docker compose up -d
@@ -23,8 +23,8 @@ docker compose up -d
 
 ```bash
 # Clone apenas frontend
-git clone <frontend-repo-url>
-cd frontend
+git clone https://github.com/m6rc0sp/anka-mfo-frontend.git
+cd anka-mfo-frontend
 
 # Instale dependências
 npm install
@@ -48,8 +48,8 @@ npm run dev
 ### Passos
 
 ```bash
-git clone <frontend-repo-url>
-cd frontend
+git clone https://github.com/m6rc0sp/anka-mfo-frontend.git
+cd anka-mfo-frontend
 npm install
 cp .env.example .env
 npm run dev
