@@ -76,7 +76,7 @@ export default function ProjectionChartClient({ selectedClient }: ProjectionChar
                 // 3) Fetch allocations to build real history based on actual dates
                 const allocationsUrl = `http://localhost:3333/simulations/${sim.id}/allocations`;
                 const allocationsRes = await fetch(allocationsUrl);
-                let realizedData: { year: number; value: number }[] = [];
+                const realizedData: { year: number; value: number }[] = [];
                 const changes: SignificantChange[] = [];
 
                 if (allocationsRes.ok) {
